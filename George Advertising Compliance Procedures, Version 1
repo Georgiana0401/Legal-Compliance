@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>合规审查工具</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    #drop-area {
+      border: 2px dashed #aaa;
+      padding: 40px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .result {
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin-top: 10px;
+    }
+    button {
+      padding: 10px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>📋 店铺合规审查工具</h2>
+
+<label>选择店铺：</label>
+<select id="store">
+  <option>天猫旗舰店A</option>
+  <option>京东店铺B</option>
+</select>
+
+<div id="drop-area">
+  拖拽图片到这里 或 点击上传
+  <input type="file" id="fileElem" multiple>
+</div>
+
+<button onclick="generateReport()">生成报告</button>
+
+<h3>识别结果：</h3>
+<div id="results"></div>
+
+<script>
+const API_KEY = "你的API_KEY填这里";
+
+let issues = [];
+
+document.getElementById("fileElem").addEventListener("change", handleFiles);
+
+async function handleFiles(event) {
+  const files = event.target.files;
+
+  for (let file of files) {
+    const base64 = await toBase64(file);
+    analyzeImage(base64);
+  }
+}
+
+function toBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+  });
+}
+
+async function analyzeImage(base64Image) {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + API_KEY
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "你是企业法务合规审查专家"
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "请识别图片中的宣传违规内容，并按以下格式输出：违规类型+问题描述+修改建议"
+            },
+            {
+              type: "image_url",
+              image_url: { url: base64Image }
+            }
+          ]
+        }
+      ]
+    })
+  });
+
+  const data = await response.json();
+  const result = data.choices[0].message.content;
+
+  issues.push(result);
+
+  const div = document.createElement("div");
+  div.className = "result";
+  div.innerText = result;
+
+  document.getElementById("results").appendChild(div);
+}
+
+function generateReport() {
+  let report = "店铺：" + document.getElementById("store").value + "\n\n";
+
+  issues.forEach((item, index) => {
+    report += `问题${index + 1}:\n${item}\n\n`;
+  });
+
+  alert(report);
+}
+</script>
+
+</body>
+</html>
